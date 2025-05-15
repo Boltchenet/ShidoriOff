@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - Shidori</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/menu.css">
+</head>
+<body>
+    <div class="marble-overlay"></div>
+    
+    <main class="menu-container">
+        <a href="index.html" class="restaurant-name-link">
+            <h1 class="restaurant-name">Shidori</h1>
+        </a>
+        
+        <div class="menu-columns">
+            <!-- Colonne Catégories -->
+            <div class="categories-column">
+                <h2>Catégories</h2>
+                <ul class="category-list">
+                    <li class="active" data-category="entrees">Entrées</li>
+                    <li data-category="sashimis">Sashimis</li>
+                    <li data-category="sushis">Sushis</li>
+                    <li data-category="plats-chauds">Plats chauds</li>
+                    <li data-category="brochettes">Brochettes</li>
+                    <li data-category="boissons">Boissons</li>
+                    <li data-category="alcool">Alcool</li>
+                    <li data-category="desserts">Desserts</li>
+                </ul>
+            </div>
+            
+            <!-- Colonne Plats -->
+            <div class="dishes-column">
+                <h2 class="category-title">Entrées</h2>
+                <form id="order-form" onsubmit="handleSubmit(event)">
+                    <div class="dishes-list" id="dishes-list">
+                        <!-- Les plats seront chargés dynamiquement ici -->
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Colonne Panier -->
+            <div class="cart-column">
+                <h2>Votre Commande</h2>
+                <div class="cart-summary">
+                    <p>Plats commandés: <span id="total-items">0</span></p>
+                    <p>Plats restants: <span id="remaining-items">20</span>/20</p>
+                    <p>Tour: <span id="current-round">1</span>/5 <span id="round-status"></span></p>
+                </div>
+                <div class="cart-items" id="cart-items">
+                    <!-- Les articles du panier apparaîtront ici -->
+                </div>
+                <button type="submit" form="order-form" class="validate-btn">Valider le tour</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Overlay d'animation de validation -->
+    <div class="validation-overlay" id="validation-overlay">
+        <div class="validation-check"></div>
+    </div>
+
+    <footer class="menu-footer">
+        <div class="footer-content">
+            <p>© 2025 Shidori | Restaurant Japonais</p>
+            <a href="Catalogue.html" class="catalogue-link">Voir le catalogue complet</a>
+        </div>
+    </footer>
+
+    <script src="js/menu.js"></script>
+    <script>
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const items = [];
+            
+            // Récupérer les plats sélectionnés depuis le panier
+            const cartItems = document.querySelectorAll('.cart-item');
+            cartItems.forEach(item => {
+                const name = item.querySelector('span').textContent.split(' x')[0];
+                const quantity = parseInt(item.querySelector('span').textContent.split(' x')[1]);
+                const dishId = parseInt(item.querySelector('.cart-plus').dataset.id);
+                
+                items.push({
+                    id: dishId,
+                    name: name,
+                    quantity: quantity
+                });
+            });
+            
+            // Envoyer la commande au serveur
+            try {
+                const response = await fetch('http://localhost:3000/api/orders', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                        table_number: 1, // Vous pouvez modifier ceci pour avoir un numéro de table dynamique
+                        dishes: items
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erreur lors de l\'envoi de la commande');
+                }
+                
+                const data = await response.json();
+                console.log("Commande envoyée ! ID:", data.orderId);
+                
+                // Afficher une confirmation visuelle
+                const overlay = document.getElementById('validation-overlay');
+                overlay.style.display = 'flex';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 2000);
+                
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert("Une erreur est survenue lors de l'envoi de la commande");
+            }
+        }
+    </script>
+</body>
+</html>
