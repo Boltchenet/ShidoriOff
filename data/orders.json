@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "tableNumber": 3,
+    "roundNumber": 1,
+    "status": "pending",
+    "dishes": [
+      { "id": 1, "name": "Edamame", "quantity": 2, "status": "pending" },
+      { "id": 2, "name": "Gyoza", "quantity": 1, "status": "pending" }
+    ]
+  },
+  {
+    "id": 2,
+    "tableNumber": 5,
+    "roundNumber": 2,
+    "status": "preparing",
+    "dishes": [
+      { "id": 6, "name": "Sashimi de Saumon", "quantity": 1, "status": "done" },
+      { "id": 10, "name": "Nigiri Saumon", "quantity": 3, "status": "preparing" }
+    ]
+  }
+]
