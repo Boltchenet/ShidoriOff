@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Cuisine - Shidori</title>
+    <link rel="stylesheet" href="../client/css/menu.css">
+    <link rel="stylesheet" href="css/kitchen.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="marble-overlay"></div>
+    
+    <main class="kitchen-container">
+        <div class="kitchen-header">
+            <h1 class="restaurant-name">
+                <i class="fas fa-utensils"></i> Shidori 
+                <span class="kitchen-subtitle">• Cuisine</span>
+            </h1>
+            <div class="kitchen-status">
+                <span id="current-time"></span>
+                <span id="orders-count">0 commande(s)</span>
+                <button id="refresh-btn" title="Rafraîchir">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Conteneur principal des commandes -->
+        <div id="orders-container" class="kitchen-grid">
+            <section class="orders-section pending-section">
+                <h2><i class="fas fa-clock icon"></i> En attente</h2>
+                <div class="orders-list" id="pending-orders">
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Aucune commande en attente</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="orders-section preparing-section">
+                <h2><i class="fas fa-utensils icon"></i> En préparation</h2>
+                <div class="orders-list" id="preparing-orders">
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Aucune commande en préparation</p>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="orders-section ready-section">
+                <h2><i class="fas fa-check-circle icon"></i> Prêt</h2>
+                <div class="orders-list" id="ready-orders">
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Aucune commande prête</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="kitchen-footer">
+            <div class="export-controls">
+                <div class="date-pickers">
+                    <input type="date" id="start-date" class="date-input">
+                    <span>à</span>
+                    <input type="date" id="end-date" class="date-input">
+                </div>
+                <button id="clear-ready-btn" class="footer-btn">
+                    <i class="fas fa-broom"></i> Nettoyer les commandes terminées
+                </button>
+                <button id="export-btn" class="footer-btn" onclick="exportOrders()">
+                    <i class="fas fa-file-export"></i> Exporter en CSV
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Connexion WebSocket pour les mises à jour en temps réel
+        const ws = new WebSocket('ws://localhost:3000');
+        
+        // Gestion des messages WebSocket
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'NEW_ORDER') {
+                console.log(`Nouvelle commande #${message.orderId} reçue !`);
+                refreshOrders();
+            } else if (message.type === 'ORDER_UPDATED') {
+                console.log(`Commande #${message.orderId} mise à jour !`);
+                refreshOrders();
+            }
+        };
+        
+        // Fonction pour rafraîchir les commandes
+        async function refreshOrders() {
+            try {
+                const response = await fetch('http://localhost:3000/api/kitchen/orders');
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la récupération des commandes');
+                }
+                
+                const orders = await response.json();
+                console.log("Commandes en cours:", orders);
+                
+                // Mettre à jour l'affichage
+                updateOrdersDisplay(orders);
+                
+                // Mettre à jour le compteur de commandes
+                document.getElementById('orders-count').textContent = 
+                    `${orders.length} commande(s)`;
+                
+            } catch (error) {
+                console.error("Erreur:", error);
+            }
+        }
+        
+        // Fonction pour mettre à jour l'affichage des commandes
+        function updateOrdersDisplay(orders) {
+            const pendingOrdersContainer = document.getElementById('pending-orders');
+            const preparingOrdersContainer = document.getElementById('preparing-orders');
+            const readyOrdersContainer = document.getElementById('ready-orders');
+            
+            // Vider les conteneurs
+            pendingOrdersContainer.innerHTML = '';
+            preparingOrdersContainer.innerHTML = '';
+            readyOrdersContainer.innerHTML = '';
+            
+            // Si aucune commande, afficher l'état vide
+            if (orders.length === 0) {
+                pendingOrdersContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Aucune commande en attente</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Trier les commandes par statut
+            orders.forEach(order => {
+                const orderElement = createOrderElement(order);
+                
+                switch(order.status) {
+                    case 'pending':
+                        pendingOrdersContainer.appendChild(orderElement);
+                        break;
+                    case 'preparing':
+                        preparingOrdersContainer.appendChild(orderElement);
+                        break;
+                    case 'ready':
+                        readyOrdersContainer.appendChild(orderElement);
+                        break;
+                    default:
+                        pendingOrdersContainer.appendChild(orderElement);
+                }
+            });
+        }
+        
+        // Fonction pour créer un élément de commande
+        function createOrderElement(order) {
+            const orderElement = document.createElement('div');
+            orderElement.className = 'order-card';
+            orderElement.dataset.orderId = order.id;
+            
+            // Créer le contenu de la commande
+            let dishesHtml = '';
+            order.dishes.forEach(dish => {
+                dishesHtml += `
+                    <div class="order-dish">
+                        <span class="dish-quantity">${dish.quantity}x</span>
+                        <span class="dish-name">${dish.name}</span>
+                    </div>
+                `;
+            });
+            
+            orderElement.innerHTML = `
+                <div class="order-header">
+                    <span class="order-id">#${order.id}</span>
+                    <span class="order-table">Table ${order.table_number}</span>
+                    <span class="order-time">${new Date(order.created_at).toLocaleTimeString()}</span>
+                </div>
+                <div class="order-dishes">
+                    ${dishesHtml}
+                </div>
+                <div class="order-actions">
+                    ${order.status === 'pending' ? 
+                        `<button class="action-btn start-btn" onclick="updateOrderStatus(${order.id}, 'preparing')">
+                            <i class="fas fa-play"></i> Commencer
+                        </button>` : ''}
+                    ${order.status === 'preparing' ? 
+                        `<button class="action-btn complete-btn" onclick="updateOrderStatus(${order.id}, 'ready')">
+                            <i class="fas fa-check"></i> Terminer
+                        </button>` : ''}
+                    ${order.status === 'ready' ? 
+                        `<button class="action-btn clear-btn" onclick="clearOrder(${order.id})">
+                            <i class="fas fa-trash"></i> Supprimer
+                        </button>` : ''}
+                </div>
+            `;
+            
+            return orderElement;
+        }
+        
+        // Fonction pour mettre à jour le statut d'une commande
+        async function updateOrderStatus(orderId, newStatus) {
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders/${orderId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                        status: newStatus
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la mise à jour de la commande');
+                }
+                
+                const data = await response.json();
+                console.log(`Statut de la commande #${orderId} mis à jour: ${newStatus}`);
+                
+                // Rafraîchir l'affichage
+                refreshOrders();
+                
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert("Une erreur est survenue lors de la mise à jour de la commande");
+            }
+        }
+        
+        // Fonction pour supprimer une commande terminée
+        async function clearOrder(orderId) {
+            try {
+                const response = await fetch(`http://localhost:3000/api/orders/${orderId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la suppression de la commande');
+                }
+                
+                console.log(`Commande #${orderId} supprimée`);
+                
+                // Rafraîchir l'affichage
+                refreshOrders();
+                
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert("Une erreur est survenue lors de la suppression de la commande");
+            }
+        }
+        
+        // Rafraîchir les commandes au chargement de la page
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshOrders();
+            
+            // Mettre à jour l'heure actuelle
+            function updateTime() {
+                const now = new Date();
+                document.getElementById('current-time').textContent = 
+                    now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            }
+            
+            updateTime();
+            setInterval(updateTime, 60000); // Mettre à jour toutes les minutes
+            
+            // Bouton de rafraîchissement manuel
+            document.getElementById('refresh-btn').addEventListener('click', refreshOrders);
+        });
+    </script>
+</body>
+</html>
